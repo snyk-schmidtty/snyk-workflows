@@ -1,0 +1,16 @@
+name: 🔒 Snyk Pipenv Monitor
+
+on:
+  schedule:
+    - cron: '0 22 * * *'
+
+jobs:
+  monitor:
+    uses: path-to-workflow-goes-here
+    with:
+      SNYK_ORG: org-id-goes-here
+      PYTHON_VERSION: 3.7.6
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      ART_USERNAME: ${{ secrets.ART_USERNAME }}
+      ART_PASSWORD: ${{ secrets.ART_PASSWORD }}

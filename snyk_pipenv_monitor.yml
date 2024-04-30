@@ -1,0 +1,59 @@
+name: 🔒 Snyk Pipenv Monitor
+
+on:
+  workflow_call:
+    inputs:
+      SNYK_ORG:
+        required: true
+        type: string
+      PYTHON_VERSION:
+        required: true
+        type: string
+    secrets:
+      SNYK_TOKEN:
+        required: true
+      ART_USERNAME:
+        required: true
+      ART_PASSWORD:
+        required: true
+
+jobs:
+  pipfile_locations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@master
+      - id: set-matrix
+        run: echo "::set-output name=matrix::$(find . -name "Pipfile" | sed 's/.\{7\}$//' | jq -R -s -c 'split("\n")[:-1]')"
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+
+      
+  monitor:
+    needs: pipfile_locations
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        directory: ${{fromJson(needs.pipfile_locations.outputs.matrix)}}
+    if: ${{ needs.pipfile_locations.outputs.matrix != '[]' }}
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      SNYK_ORG: ${{ inputs.SNYK_ORG }}
+      ART_USERNAME: ${{ secrets.ART_USERNAME }}
+      ART_PASSWORD: ${{ secrets.ART_PASSWORD }}
+    steps:
+      - name: Clone repository to be scanned
+        uses: actions/checkout@master
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ inputs.PYTHON_VERSION }}
+      - name: Install pipenv
+        run: pip install pipenv
+      - name: Cd to directory
+        run: cd ${{ matrix.directory }}
+      - name: Install dependencies in env
+        run: pipenv install --dev --clear
+      - name: Install Snyk CLI
+        uses: snyk/actions/setup@master
+      - name: Run Snyk monitor
+        run: snyk monitor --dev --file=Pipfile --remote-repo-url=$GITHUB_REPOSITORY/pipenv --project-name=$GITHUB_REPOSITORY${{ matrix.directory }} --org=$SNYK_ORG
